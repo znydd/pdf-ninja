@@ -18,7 +18,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self' 'unsafe-inline'; img-src * data: blob:; connect-src * 'self'"
     }
   },
   "bundle": {

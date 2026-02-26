@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>PDF Ninja — Send Images</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0f0f13;
+            --surface: #1a1a24;
+            --border: #2a2a3a;
+            --primary: #6c5ce7;
+            --primary-hover: #7f70f0;
+            --text: #e8e8f0;
+            --text-muted: #8888a0;
+            --success: #00b894;
+            --danger: #ff4757;
+            --radius: 12px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 16px;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            background: linear-gradient(135deg, var(--primary), #a29bfe);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 28px;
+        }
+
+        .upload-area {
+            width: 100%;
+            max-width: 420px;
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            background: var(--surface);
+        }
+
+        .upload-area:hover, .upload-area.active {
+            border-color: var(--primary);
+            background: rgba(108, 92, 231, 0.05);
+        }
+
+        .upload-area .icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+
+        .upload-area p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        #fileInput { display: none; }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            width: 100%;
+            max-width: 420px;
+            margin-top: 16px;
+        }
+
+        .preview-grid img {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .file-count {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 12px;
+        }
+
+        .btn {
+            width: 100%;
+            max-width: 420px;
+            padding: 16px;
+            margin-top: 20px;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn:active { transform: scale(0.98); }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-clear {
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+            margin-top: 8px;
+        }
+
+        .status-bar {
+            width: 100%;
+            max-width: 420px;
+            margin-top: 16px;
+            padding: 14px;
+            border-radius: var(--radius);
+            font-size: 0.9rem;
+            text-align: center;
+            display: none;
+        }
+
+        .status-bar.success {
+            display: block;
+            background: rgba(0, 184, 148, 0.1);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        .status-bar.error {
+            display: block;
+            background: rgba(255, 71, 87, 0.1);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+        }
+
+        .status-bar.loading {
+            display: block;
+            background: rgba(108, 92, 231, 0.1);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .progress-bar {
+            width: 100%;
+            max-width: 420px;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar.visible { display: block; }
+
+        .progress-bar .fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="logo">PDF Ninja</div>
+    <p class="subtitle">Select images to send to your PC</p>
+
+    <div class="upload-area" id="uploadArea">
+        <div class="icon">📷</div>
+        <p>Tap to select images</p>
+    </div>
+    <input type="file" id="fileInput" multiple accept="image/*" />
+
+    <div class="preview-grid" id="previewGrid"></div>
+    <p class="file-count" id="fileCount"></p>
+
+    <button class="btn btn-primary" id="sendBtn" disabled>Send to PC</button>
+    <button class="btn btn-clear" id="clearBtn" style="display:none">Clear Selection</button>
+
+    <div class="status-bar" id="statusBar"></div>
+    <div class="progress-bar" id="progressBar"><div class="fill" id="progressFill"></div></div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const previewGrid = document.getElementById('previewGrid');
+        const fileCount = document.getElementById('fileCount');
+        const sendBtn = document.getElementById('sendBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const statusBar = document.getElementById('statusBar');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+
+        let selectedFiles = [];
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files || []);
+            if (files.length === 0) return;
+
+            selectedFiles = files;
+            renderPreviews();
+            sendBtn.disabled = false;
+            clearBtn.style.display = 'block';
+            uploadArea.classList.add('active');
+            hideStatus();
+        });
+
+        clearBtn.addEventListener('click', () => {
+            selectedFiles = [];
+            fileInput.value = '';
+            previewGrid.innerHTML = '';
+            fileCount.textContent = '';
+            sendBtn.disabled = true;
+            clearBtn.style.display = 'none';
+            uploadArea.classList.remove('active');
+            hideStatus();
+        });
+
+        function renderPreviews() {
+            previewGrid.innerHTML = '';
+            selectedFiles.forEach((file) => {
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                img.alt = file.name;
+                previewGrid.appendChild(img);
+            });
+            fileCount.textContent = `${selectedFiles.length} image${selectedFiles.length !== 1 ? 's' : ''} selected`;
+        }
+
+        function showStatus(message, type) {
+            statusBar.textContent = message;
+            statusBar.className = 'status-bar ' + type;
+        }
+
+        function hideStatus() {
+            statusBar.className = 'status-bar';
+        }
+
+        sendBtn.addEventListener('click', async () => {
+            if (selectedFiles.length === 0) return;
+
+            sendBtn.disabled = true;
+            showStatus('Uploading...', 'loading');
+            progressBar.classList.add('visible');
+            progressFill.style.width = '0%';
+
+            const formData = new FormData();
+            selectedFiles.forEach((file, index) => {
+                formData.append(`image_${index}`, file);
+            });
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                progressFill.style.width = '100%';
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    const msg = `✅ ${result.saved} image${result.saved !== 1 ? 's' : ''} sent to PC!`;
+                    showStatus(msg, 'success');
+                    // Reset after success
+                    selectedFiles = [];
+                    fileInput.value = '';
+                    previewGrid.innerHTML = '';
+                    fileCount.textContent = '';
+                    clearBtn.style.display = 'none';
+                    uploadArea.classList.remove('active');
+                } else {
+                    const errMsg = result.errors ? result.errors.join(', ') : 'Upload failed';
+                    showStatus(`❌ ${errMsg}`, 'error');
+                    sendBtn.disabled = false;
+                }
+            } catch (err) {
+                showStatus(`❌ Connection failed. Are you on the same WiFi?`, 'error');
+                sendBtn.disabled = false;
+            }
+
+            setTimeout(() => {
+                progressBar.classList.remove('visible');
+                progressFill.style.width = '0%';
+            }, 1500);
+        });
+    </script>
+</body>
+</html>
