@@ -1,5 +1,4 @@
 import { useState } from "react";
-import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
@@ -8,7 +7,6 @@ function App() {
   const [name, setName] = useState("");
 
   async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
     setGreetMsg(await invoke("greet", { name }));
   }
 
@@ -16,6 +14,9 @@ function App() {
     <main className="container">
       <h1>PDF Ninja</h1>
       <p>PDF Ninja is a tool for editing PDF files.</p>
+      <input type="text" placeholder="Enter your name" value={name} onChange={(e) => setName(e.target.value)} />
+      <button onClick={greet}>Greet</button>
+      <p>{greetMsg}</p>
     </main>
   );
 }
